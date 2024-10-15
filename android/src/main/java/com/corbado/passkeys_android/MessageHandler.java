@@ -223,7 +223,9 @@ public class MessageHandler implements Messages.PasskeysApi {
                     } else if (e instanceof NoCredentialException) {
                         platformException = new Messages.FlutterError("android-no-credential", e.getMessage(), "");
                     } else if (e instanceof GetPublicKeyCredentialDomException) {
-                        if (Objects.equals(e.getMessage(), "Failed to decrypt credential.")) {
+                        if (e.getMessage().contains("Cancelled by user")) {
+                            platformException = new Messages.FlutterError("cancelled", e.getMessage(), "");
+                        } else if (Objects.equals(e.getMessage(), "Failed to decrypt credential.")) {
                             platformException = new Messages.FlutterError("android-sync-account-not-available", e.getMessage(), SYNC_ACCOUNT_NOT_AVAILABLE_ERROR);
                         } else {
                             platformException = new Messages.FlutterError("android-unhandled: " + e.getType(), e.getMessage(), e.getErrorMessage());
