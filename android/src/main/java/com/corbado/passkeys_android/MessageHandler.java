@@ -147,9 +147,11 @@ public class MessageHandler implements Messages.PasskeysApi {
                     } else if (e instanceof CreateCredentialCancellationException) {
                         platformException = new Messages.FlutterError("cancelled", e.getMessage(), "");
                     } else if (e instanceof CreatePublicKeyCredentialDomException) {
-                        if (Objects.equals(e.getMessage(), "User is unable to create passkeys.")) {
+                        if(e.getMessage() != null && e.getMessage().contains("One of the excluded credentials exists on the local device")) {
+                            platformException = new Messages.FlutterError("exclude-credentials-match", e.getMessage(), EXCLUDE_CREDENTIALS_MATCH_ERROR);
+                        }else if (Objects.equals(e.getMessage(), "User is unable to create passkeys.") || (e.getMessage() != null && e.getMessage().contains("User is unable to create passkeys"))) {
                             platformException = new Messages.FlutterError("android-missing-google-sign-in", e.getMessage(), MISSING_GOOGLE_SIGN_IN_ERROR);
-                        } else if (Objects.equals(e.getMessage(), "Unable to get sync account.")) {
+                        } else if (Objects.equals(e.getMessage(), "Unable to get sync account.") || (e.getMessage() != null && e.getMessage().contains("Unable to get sync account"))) {
                             platformException = new Messages.FlutterError("android-sync-account-not-available", e.getMessage(), SYNC_ACCOUNT_NOT_AVAILABLE_ERROR);
                         } else if (Objects.equals(e.getMessage(), "One of the excluded credentials exists on the local device")) {
                             platformException = new Messages.FlutterError("exclude-credentials-match", e.getMessage(), EXCLUDE_CREDENTIALS_MATCH_ERROR);
@@ -202,13 +204,11 @@ public class MessageHandler implements Messages.PasskeysApi {
                             public void onResult(PrepareGetCredentialResponse prepareGetCredentialResponse) {
 
                                 boolean hasCredentialResults = prepareGetCredentialResponse.hasCredentialResults(TYPE_PUBLIC_KEY_CREDENTIAL);
-                                Log.i(TAG, "Pending Get Credential Handle is null: " + hasCredentialResults);
                                 if(hasCredentialResults) {
                                     credentialManager.getCredentialAsync(activity, getCredRequest, currentCancellationSignal, Runnable::run, new CredentialManagerCallback<>() {
 
                                         @Override
                                         public void onResult(GetCredentialResponse res) {
-                                            Log.e(TAG, "onResult called");
                                             Credential credential = res.getCredential();
                                             if (credential instanceof PublicKeyCredential) {
                                                 String responseJson = ((PublicKeyCredential) credential).getAuthenticationResponseJson();
@@ -238,7 +238,6 @@ public class MessageHandler implements Messages.PasskeysApi {
 
                                         @Override
                                         public void onError(@NonNull GetCredentialException e) {
-                                            Log.e(TAG, "onError called", e);
                                             Exception platformException = e;
 
                                             // currently, Android throws this error when users skip the fingerPrint animation => we interpret this as a cancellation for now
@@ -283,7 +282,6 @@ public class MessageHandler implements Messages.PasskeysApi {
 
                     @Override
                     public void onResult(GetCredentialResponse res) {
-                        Log.e(TAG, "onResult called");
                         Credential credential = res.getCredential();
                         if (credential instanceof PublicKeyCredential) {
                             String responseJson = ((PublicKeyCredential) credential).getAuthenticationResponseJson();
