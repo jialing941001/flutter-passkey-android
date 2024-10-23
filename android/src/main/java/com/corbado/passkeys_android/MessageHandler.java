@@ -2,10 +2,11 @@ package com.corbado.passkeys_android;
 
 import static androidx.credentials.PublicKeyCredential.TYPE_PUBLIC_KEY_CREDENTIAL;
 
+import android.accounts.Account;
+import android.accounts.AccountManager;
 import android.app.Activity;
-import android.content.pm.PackageManager;
-import android.content.pm.Signature;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.util.Log;
 
@@ -13,6 +14,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.credentials.CreateCredentialResponse;
 import androidx.credentials.CreatePublicKeyCredentialRequest;
+import androidx.credentials.CreatePublicKeyCredentialResponse;
 import androidx.credentials.Credential;
 import androidx.credentials.CredentialManager;
 import androidx.credentials.CredentialManagerCallback;
@@ -23,6 +25,7 @@ import androidx.credentials.PrepareGetCredentialResponse;
 import androidx.credentials.PublicKeyCredential;
 import androidx.credentials.exceptions.CreateCredentialCancellationException;
 import androidx.credentials.exceptions.CreateCredentialException;
+import androidx.credentials.exceptions.CreateCredentialNoCreateOptionException;
 import androidx.credentials.exceptions.GetCredentialCancellationException;
 import androidx.credentials.exceptions.GetCredentialException;
 import androidx.credentials.exceptions.NoCredentialException;
@@ -45,8 +48,6 @@ import com.google.android.gms.tasks.Task;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -94,7 +95,7 @@ public class MessageHandler implements Messages.PasskeysApi {
 
         UserType userType = new UserType(user.getName(), user.getDisplayName(), user.getId(), user.getIcon());
         RelyingPartyType relyingPartyType = new RelyingPartyType(relyingParty.getId(), relyingParty.getName());
-        AuthenticatorSelectionType authSelectionType = new AuthenticatorSelectionType(authenticatorSelection.getAuthenticatorAttachment(), authenticatorSelection.getRequireResidentKey(), authenticatorSelection.getResidentKey(), authenticatorSelection.getUserVerification());
+        AuthenticatorSelectionType authSelectionType = new AuthenticatorSelectionType("platform", authenticatorSelection.getRequireResidentKey(), authenticatorSelection.getResidentKey(), authenticatorSelection.getUserVerification());
         List<PubKeyCredParamType> pubKeyCredParamsType = new ArrayList<>();
         if (pubKeyCredParams != null) {
             pubKeyCredParamsType = pubKeyCredParams.stream().map(p -> new PubKeyCredParamType(p.getType(), p.getAlg())).collect(Collectors.toList());
@@ -121,8 +122,11 @@ public class MessageHandler implements Messages.PasskeysApi {
                 result.error(platformException);
             }
             CredentialManager credentialManager = CredentialManager.create(activity);
+
             CreatePublicKeyCredentialRequest createPublicKeyCredentialRequest = new CreatePublicKeyCredentialRequest(options);
+
             currentCancellationSignal = new CancellationSignal();
+
             credentialManager.createCredentialAsync(activity, createPublicKeyCredentialRequest, currentCancellationSignal, Runnable::run, new CredentialManagerCallback<>() {
 
                 @Override
@@ -146,6 +150,8 @@ public class MessageHandler implements Messages.PasskeysApi {
                         platformException = new Messages.FlutterError("cancelled", e.getMessage(), "");
                     } else if (e instanceof CreateCredentialCancellationException) {
                         platformException = new Messages.FlutterError("cancelled", e.getMessage(), "");
+                    } else if (e instanceof CreateCredentialNoCreateOptionException) {
+                        platformException = new Messages.FlutterError("android-missing-google-sign-in", e.getMessage(), MISSING_GOOGLE_SIGN_IN_ERROR);
                     } else if (e instanceof CreatePublicKeyCredentialDomException) {
                         if(e.getMessage() != null && e.getMessage().contains("One of the excluded credentials exists on the local device")) {
                             platformException = new Messages.FlutterError("exclude-credentials-match", e.getMessage(), EXCLUDE_CREDENTIALS_MATCH_ERROR);
